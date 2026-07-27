@@ -1,7 +1,9 @@
 skills:
 - name: documentation
   version: 0.1.0
+  schema_version: 1
   description: Write and maintain accurate project documentation after code, workflow, or architecture changes.
+  path: skills/documentation
   tags:
   - documentation
   - maintenance
@@ -11,7 +13,9 @@ skills:
   - opencode
 - name: hello-world
   version: 0.1.0
+  schema_version: 1
   description: Greet a person with the bundled deterministic script when testing skill discovery or script execution.
+  path: skills/hello-world
   tags:
   - example
   targets:

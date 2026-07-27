@@ -4,8 +4,8 @@ import os
 from datetime import date
 from pathlib import Path
 
+import pytest
 import yaml
-
 from conftest import REPO_ROOT, run_skillctl
 
 
@@ -68,8 +68,10 @@ def test_validate_reports_frontmatter_and_registry_errors(repo_copy: Path) -> No
 
 
 def test_sync_dry_run_and_symlink_install(
-    repo_copy: Path, adapter_env: dict[str, str]
+    repo_copy: Path, adapter_env: dict[str, str], can_symlink: bool
 ) -> None:
+    if not can_symlink:
+        pytest.skip("symlink creation is not available; copy mode is covered")
     dry_run = run_skillctl(
         repo_copy,
         ["sync", "--profile", "personal", "--dry-run"],
@@ -127,11 +129,13 @@ def test_sync_copy_and_prune_preserves_unmanaged(
 
 
 def test_doctor_uses_overrides_and_finds_dangling_symlink(
-    repo_copy: Path, adapter_env: dict[str, str]
+    repo_copy: Path, adapter_env: dict[str, str], can_symlink: bool
 ) -> None:
     clean = run_skillctl(repo_copy, ["doctor"], env=adapter_env)
     assert clean.returncode == 0, clean.stdout + clean.stderr
 
+    if not can_symlink:
+        pytest.skip("symlink creation is not available; copy mode is covered")
     claude_destination = Path(adapter_env["SKOBAL_CLAUDE_DIR"])
     claude_destination.mkdir()
     (claude_destination / "dangling").symlink_to(claude_destination / "missing")

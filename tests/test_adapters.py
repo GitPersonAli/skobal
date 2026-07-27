@@ -8,7 +8,6 @@ from adapters.claude import ClaudeAdapter
 from adapters.cursor import CursorAdapter
 from adapters.opencode import OpenCodeAdapter
 
-
 ADAPTER_CASES = [
     (ClaudeAdapter, "SKOBAL_CLAUDE_DIR"),
     (CursorAdapter, "SKOBAL_CURSOR_DIR"),
@@ -22,7 +21,10 @@ def test_adapter_symlink_copy_and_uninstall(
     env_var: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    can_symlink: bool,
 ) -> None:
+    if not can_symlink:
+        pytest.skip("symlink creation is not available; copy mode is covered")
     destination = tmp_path / adapter_class.name
     monkeypatch.setenv(env_var, str(destination))
     skill = tmp_path / "source" / "sample"

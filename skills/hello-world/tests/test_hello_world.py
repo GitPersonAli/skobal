@@ -6,7 +6,6 @@ from pathlib import Path
 
 import yaml
 
-
 SKILL_DIR = Path(__file__).resolve().parents[1]
 
 

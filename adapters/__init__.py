@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import hashlib
 import importlib
-import json
 import os
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import ClassVar
 
-
 ADAPTER_NAMES = ("claude", "cursor", "opencode")
 _NAME_PATTERN = "Adapter skill names must be a single path component"
+_COPY_IGNORE = shutil.ignore_patterns(
+    "__pycache__", ".pytest_cache", "*.pyc", "*.pyo"
+)
 
 
 class Adapter(ABC):
@@ -26,24 +27,19 @@ class Adapter(ABC):
         """Return the adapter's installation directory."""
 
     @abstractmethod
-    def install(self, skill_dir: Path, name: str, copy: bool = False) -> str:
-        """Install a skill and return installed, updated, or skipped."""
+    def prepare(self, source: Path, prepared: Path, *, copy: bool) -> None:
+        """Prepare a complete install at a same-filesystem temporary path."""
 
     @abstractmethod
-    def uninstall(self, name: str) -> str:
-        """Remove a managed skill and return removed or skipped."""
-
-    @abstractmethod
-    def installed(self) -> list[str]:
-        """Return sorted names of skills currently managed by Skobal."""
+    def verify_prepared(self, source: Path, prepared: Path, *, copy: bool) -> None:
+        """Raise if a prepared install is incomplete or points elsewhere."""
 
 
 class FilesystemAdapter(Adapter):
-    """Safe shared implementation for directory-based skill targets."""
+    """Shared filesystem behavior; policy and transactions live in skobal.sync."""
 
     env_var: ClassVar[str]
     home_relative_dest: ClassVar[Path]
-    marker_dir_name: ClassVar[str] = ".skobal-managed"
 
     def default_dest(self) -> Path:
         override = os.environ.get(self.env_var)
@@ -51,172 +47,142 @@ class FilesystemAdapter(Adapter):
             return Path(override).expanduser()
         return Path.home() / self.home_relative_dest
 
-    def install(self, skill_dir: Path, name: str, copy: bool = False) -> str:
-        skill_dir = skill_dir.resolve()
-        if not skill_dir.is_dir():
-            raise FileNotFoundError(f"skill directory does not exist: {skill_dir}")
-
-        action = self.plan_install(skill_dir, name, copy=copy)
-        if action == "skipped":
-            return action
-
-        destination = self.default_dest()
-        target = self._target(name)
-        destination.mkdir(parents=True, exist_ok=True)
-
-        if self._present(target):
-            self._remove_path(target)
-
-        if copy:
-            shutil.copytree(
-                skill_dir,
-                target,
-                ignore=shutil.ignore_patterns(
-                    "__pycache__", ".pytest_cache", "*.pyc", "*.pyo"
-                ),
-            )
-        else:
-            target.symlink_to(skill_dir, target_is_directory=True)
-
-        marker = self._marker(name)
-        marker.parent.mkdir(parents=True, exist_ok=True)
-        mode = "copy" if copy else "symlink"
-        marker.write_text(
-            json.dumps(
-                {
-                    "adapter": self.name,
-                    "digest": self._tree_digest(target) if copy else None,
-                    "mode": mode,
-                    "name": name,
-                    "source": str(skill_dir),
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        return action
-
-    def plan_install(self, skill_dir: Path, name: str, copy: bool = False) -> str:
-        """Return the action install would take without changing the filesystem."""
-        skill_dir = skill_dir.resolve()
-        target = self._target(name)
-        if not self._present(target):
-            return "installed"
-        if not self._is_managed(name):
-            raise FileExistsError(
-                f"refusing to replace unmanaged destination: {target}"
-            )
-
-        if copy:
-            if target.is_dir() and not target.is_symlink():
-                if self._tree_digest(target) == self._tree_digest(skill_dir):
-                    return "skipped"
-        elif target.is_symlink() and target.resolve(strict=False) == skill_dir:
-            return "skipped"
-        return "updated"
-
-    def uninstall(self, name: str) -> str:
-        target = self._target(name)
-        marker = self._marker(name)
-        if not self._is_managed(name):
-            if self._present(target):
-                raise PermissionError(
-                    f"refusing to remove unmanaged destination: {target}"
-                )
-            return "skipped"
-
-        if self._present(target):
-            self._remove_path(target)
-        marker.unlink()
-        marker_dir = marker.parent
-        if marker_dir.is_dir() and not any(marker_dir.iterdir()):
-            marker_dir.rmdir()
-        return "removed"
-
-    def installed(self) -> list[str]:
-        marker_dir = self.default_dest() / self.marker_dir_name
-        if not marker_dir.is_dir():
-            return []
-        names = []
-        for marker in marker_dir.glob("*.json"):
-            name = marker.stem
-            if self._present(self._target(name)) and self._valid_marker(name):
-                names.append(name)
-        return sorted(names)
-
-    def _target(self, name: str) -> Path:
+    def target(self, name: str) -> Path:
         if not name or Path(name).name != name or name in {".", ".."}:
             raise ValueError(_NAME_PATTERN)
         return self.default_dest() / name
 
-    def _marker(self, name: str) -> Path:
-        self._target(name)
-        return self.default_dest() / self.marker_dir_name / f"{name}.json"
+    def prepare(self, source: Path, prepared: Path, *, copy: bool) -> None:
+        if copy:
+            shutil.copytree(source, prepared, ignore=_COPY_IGNORE)
+        else:
+            prepared.symlink_to(source, target_is_directory=True)
 
-    def _is_managed(self, name: str) -> bool:
-        return self._valid_marker(name)
-
-    def _valid_marker(self, name: str) -> bool:
-        try:
-            payload = json.loads(self._marker(name).read_text(encoding="utf-8"))
-        except (OSError, ValueError, TypeError):
-            return False
-        if payload.get("adapter") != self.name or payload.get("name") != name:
-            return False
-
-        source_value = payload.get("source")
-        if not isinstance(source_value, str):
-            return False
-        source = Path(source_value)
-        target = self._target(name)
-        if payload.get("mode") == "symlink":
-            return (
-                target.is_symlink()
-                and target.resolve(strict=False) == source.resolve(strict=False)
-            )
-        if payload.get("mode") == "copy":
-            return (
-                target.is_dir()
-                and not target.is_symlink()
-                and payload.get("digest") == self._tree_digest(target)
-            )
-        return False
-
-    @staticmethod
-    def _present(path: Path) -> bool:
-        return path.exists() or path.is_symlink()
-
-    @staticmethod
-    def _remove_path(path: Path) -> None:
-        if path.is_symlink() or path.is_file():
-            path.unlink()
-        elif path.is_dir():
-            shutil.rmtree(path)
-
-    @staticmethod
-    def _tree_digest(root: Path) -> str:
-        digest = hashlib.sha256()
-        for path in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
+    def verify_prepared(self, source: Path, prepared: Path, *, copy: bool) -> None:
+        source = source.resolve()
+        if copy:
             if (
-                any(part in {"__pycache__", ".pytest_cache"} for part in path.parts)
-                or path.suffix in {".pyc", ".pyo"}
+                not prepared.is_dir()
+                or prepared.is_symlink()
+                or tree_digest(prepared) != tree_digest(source)
             ):
-                continue
-            relative = path.relative_to(root).as_posix().encode()
-            if path.is_symlink():
-                digest.update(b"L")
-                digest.update(relative)
-                digest.update(os.readlink(path).encode())
-            elif path.is_dir():
-                digest.update(b"D")
-                digest.update(relative)
-            elif path.is_file():
-                digest.update(b"F")
-                digest.update(relative)
-                digest.update(path.read_bytes())
-        return digest.hexdigest()
+                raise OSError(f"prepared copy verification failed: {prepared}")
+            return
+        if (
+            not prepared.is_symlink()
+            or not prepared.exists()
+            or prepared.resolve(strict=False) != source
+        ):
+            raise OSError(f"prepared symlink verification failed: {prepared}")
+
+    # Compatibility wrappers for callers of the original adapter API.
+    def plan_install(self, skill_dir: Path, name: str, copy: bool = False) -> str:
+        from skobal.errors import ConflictError
+        from skobal.state import StateStore
+        from skobal.sync import plan_install
+
+        try:
+            return plan_install(
+                self,
+                skill_dir,
+                name,
+                version=_source_version(skill_dir),
+                copy=copy,
+                force=False,
+                store=StateStore(),
+            ).action
+        except ConflictError as exc:
+            raise FileExistsError(str(exc)) from exc
+
+    def install(self, skill_dir: Path, name: str, copy: bool = False) -> str:
+        from skobal.errors import ConflictError
+        from skobal.state import StateStore
+        from skobal.sync import install_one
+
+        try:
+            return install_one(
+                self,
+                skill_dir,
+                name,
+                version=_source_version(skill_dir),
+                copy=copy,
+                force=False,
+                store=StateStore(),
+            ).action
+        except ConflictError as exc:
+            raise FileExistsError(str(exc)) from exc
+
+    def uninstall(self, name: str) -> str:
+        from skobal.errors import ConflictError
+        from skobal.state import StateStore
+        from skobal.sync import uninstall_one
+
+        store = StateStore()
+        target = self.target(name)
+        record = store.find(
+            target=self.name, skill=name, destination=target.absolute()
+        )
+        if record is None:
+            if present(target):
+                raise PermissionError(
+                    f"refusing to remove unmanaged destination: {target}"
+                )
+            return "skipped"
+        try:
+            uninstall_one(self, record, store)
+        except ConflictError as exc:
+            raise PermissionError(
+                f"refusing to remove unmanaged/changed destination: {target}: {exc}"
+            ) from exc
+        return "removed"
+
+    def installed(self) -> list[str]:
+        from skobal.state import StateStore
+        from skobal.sync import record_is_intact
+
+        store = StateStore()
+        return sorted(
+            record.skill
+            for record in store.for_target_root(self.name, self.default_dest())
+            if record_is_intact(record)
+        )
+
+
+def present(path: Path) -> bool:
+    """Return true for files, directories, and dangling symlinks."""
+    return path.exists() or path.is_symlink()
+
+
+def remove_path(path: Path) -> None:
+    """Remove one known, explicit path without following symlinks."""
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path)
+
+
+def tree_digest(root: Path) -> str:
+    """Hash a directory tree deterministically, excluding runtime caches."""
+    digest = hashlib.sha256()
+    for path in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
+        if (
+            any(part in {"__pycache__", ".pytest_cache"} for part in path.parts)
+            or path.suffix in {".pyc", ".pyo"}
+        ):
+            continue
+        relative = path.relative_to(root).as_posix().encode()
+        if path.is_symlink():
+            digest.update(b"L")
+            digest.update(relative)
+            digest.update(os.readlink(path).encode())
+        elif path.is_dir():
+            digest.update(b"D")
+            digest.update(relative)
+        elif path.is_file():
+            digest.update(b"F")
+            digest.update(relative)
+            digest.update(path.read_bytes())
+    return digest.hexdigest()
 
 
 def get_adapter(name: str) -> Adapter:
@@ -225,7 +191,7 @@ def get_adapter(name: str) -> Adapter:
         choices = ", ".join(ADAPTER_NAMES)
         raise KeyError(f"unknown adapter {name!r}; choose one of: {choices}")
     module = importlib.import_module(f"adapters.{name}")
-    adapter_class = getattr(module, "ADAPTER_CLASS")
+    adapter_class = module.ADAPTER_CLASS
     adapter = adapter_class()
     if not isinstance(adapter, Adapter):
         raise TypeError(f"{name} did not provide an Adapter implementation")
@@ -237,10 +203,27 @@ def discover_adapters() -> dict[str, Adapter]:
     return {name: get_adapter(name) for name in ADAPTER_NAMES}
 
 
+def _source_version(skill_dir: Path) -> str:
+    try:
+        import yaml
+
+        payload = yaml.safe_load(
+            (skill_dir / "skill.yaml").read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return "0.0.0"
+    if isinstance(payload, dict) and isinstance(payload.get("version"), str):
+        return payload["version"]
+    return "0.0.0"
+
+
 __all__ = [
     "ADAPTER_NAMES",
     "Adapter",
     "FilesystemAdapter",
     "discover_adapters",
     "get_adapter",
+    "present",
+    "remove_path",
+    "tree_digest",
 ]

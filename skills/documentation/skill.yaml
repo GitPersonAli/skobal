@@ -1,5 +1,7 @@
+schema_version: 1
 name: documentation
 version: 0.1.0
+description: Write and maintain accurate project documentation after code, workflow, or architecture changes.
 tags: [documentation, maintenance]
 targets: [claude, cursor, opencode]
 requires: []
