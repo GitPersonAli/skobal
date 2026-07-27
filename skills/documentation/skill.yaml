@@ -1,0 +1,5 @@
+name: documentation
+version: 0.1.0
+tags: [documentation, maintenance]
+targets: [claude, cursor, opencode]
+requires: []
