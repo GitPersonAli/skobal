@@ -35,12 +35,22 @@ def run_skillctl(
 
 @pytest.fixture
 def repo_copy(tmp_path: Path) -> Path:
+    """Fixture repository: real code, but the skill catalog and profiles come
+    from tests/fixtures so tests never depend on the live catalog."""
     destination = tmp_path / "skobal"
     destination.mkdir()
-    for name in ("adapters", "profiles", "skobal", "skills", "tests"):
+    fixtures = REPO_ROOT / "tests" / "fixtures"
+    for name in ("adapters", "skobal", "tests"):
         shutil.copytree(REPO_ROOT / name, destination / name)
-    for name in ("pyproject.toml", "skillctl", "registry.yaml"):
+    shutil.copytree(fixtures / "skills", destination / "skills")
+    shutil.copytree(
+        REPO_ROOT / "skills" / "_template", destination / "skills" / "_template"
+    )
+    shutil.copytree(fixtures / "profiles", destination / "profiles")
+    for name in ("pyproject.toml", "skillctl"):
         shutil.copy2(REPO_ROOT / name, destination / name)
+    generated = run_skillctl(destination, ["registry"])
+    assert generated.returncode == 0, generated.stderr
     return destination
 
 

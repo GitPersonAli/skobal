@@ -1,3 +1,6 @@
 name: personal
-targets: [claude]
-skills: [documentation, hello-world, codex-control, dispatch-or-direct]
+targets:
+- claude
+skills:
+- codex-control
+- dispatch-or-direct

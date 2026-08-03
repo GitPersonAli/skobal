@@ -9,15 +9,19 @@ import yaml
 from conftest import REPO_ROOT, run_skillctl
 
 
-def test_list_and_validate() -> None:
-    listed = run_skillctl(REPO_ROOT, ["list"])
-    validated = run_skillctl(REPO_ROOT, ["validate"])
+def test_list_and_validate(repo_copy: Path) -> None:
+    listed = run_skillctl(repo_copy, ["list"])
+    validated = run_skillctl(repo_copy, ["validate"])
 
     assert listed.returncode == 0
     assert "documentation" in listed.stdout
     assert "hello-world" in listed.stdout
     assert validated.returncode == 0
     assert "Validation passed" in validated.stdout
+
+    # The live catalog must also stay valid.
+    live = run_skillctl(REPO_ROOT, ["validate"])
+    assert live.returncode == 0
 
 
 def test_new_substitutes_templates_and_validates(repo_copy: Path) -> None:

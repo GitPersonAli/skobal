@@ -73,7 +73,7 @@ A profile picks targets and skills:
 ```yaml
 name: personal
 targets: [claude]
-skills: [documentation, codex-control]
+skills: [codex-control, dispatch-or-direct]
 ```
 
 Symlink mode is the default, so repository edits are live immediately;
