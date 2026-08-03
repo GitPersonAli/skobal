@@ -2,268 +2,100 @@
 
 [![CI](https://github.com/GitPersonAli/skobal/actions/workflows/ci.yml/badge.svg)](https://github.com/GitPersonAli/skobal/actions/workflows/ci.yml)
 
-Skobal is a local-first, Git-backed catalog of portable AI-agent skills.
-Profiles select skill sets, and filesystem adapters install them for Claude,
-Cursor, and OpenCode. There is no server, account, database, or marketplace.
+Local-first, Git-backed catalog of portable AI-agent skills. Profiles select
+skill sets; filesystem adapters install them for Claude, Cursor, and OpenCode.
+No server, no account, no marketplace.
 
-## Installation
-
-One command — installs to `~/.skobal` and syncs the `personal` profile:
+## Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/GitPersonAli/skobal/main/install.sh | bash
 ```
 
-**Updating is the same command.** Rerunning it on an existing install performs
-the safe update pipeline (`git pull --ff-only`, validate, regenerate registry,
-sync). Equivalent direct form:
+Installs to `~/.skobal` and syncs the `personal` profile. **Updating is the
+same command** — rerunning it fast-forwards, validates, and re-syncs. Direct
+form: `~/.skobal/skillctl update --profile personal`.
 
-```bash
-~/.skobal/skillctl update --profile personal
-```
-
-The script checks Git and Python 3.10+, installs PyYAML if missing, then
-clones or fast-forwards and syncs. Pick another location, profile, or fork via
-environment variables (note: they go before `bash`, not before `curl`):
+Options go before `bash`, not before `curl`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/GitPersonAli/skobal/main/install.sh \
   | SKOBAL_PROFILE=work SKOBAL_DIR=~/dev/skobal bash
 ```
 
-Manual alternative (any path):
+Manual install (any path):
 
 ```bash
 git clone https://github.com/GitPersonAli/skobal.git skobal
-cd skobal
-python3 -m pip install PyYAML
-./skillctl sync --profile personal
+cd skobal && python3 -m pip install PyYAML && ./skillctl sync --profile personal
 ```
 
-The executable remains the entry point for every command:
+Requires Git and Python 3.10+. On Windows use `python skillctl ...`; if
+symlinks are denied, add `--copy`.
+
+## Daily commands
+
+| Command | Does |
+| --- | --- |
+| `./skillctl list` | List repository skills |
+| `./skillctl new <name>` | Scaffold a skill |
+| `./skillctl validate` | Validate skills and registry |
+| `./skillctl registry` | Regenerate `registry.yaml` (never edit by hand) |
+| `./skillctl sync --profile <p>` | Install a profile's skills (symlinks; `--copy`, `--prune`, `--force`, `--dry-run`) |
+| `./skillctl status --profile <p>` | Read-only drift report (`--json` for scripts) |
+| `./skillctl update --profile <p>` | Safe pull + validate + registry + sync |
+| `./skillctl test [skill]` | Run skill-local pytest suites |
+| `./skillctl doctor` | Check Python, state, and adapter destinations |
+
+## Add a skill
 
 ```bash
-./skillctl list
-./skillctl sync --profile personal --dry-run
+./skillctl new my-skill        # edit skills/my-skill/SKILL.md + skill.yaml
+./skillctl validate my-skill && ./skillctl registry
+# add "my-skill" to profiles/<profile>.yaml, then:
+./skillctl sync --profile personal
+git add skills/my-skill profiles registry.yaml && git commit && git push
 ```
 
-On Windows, use `python skillctl ...` if the shell does not execute extensionless
-scripts directly.
-
-## Architecture
-
-```text
-skills/* + skill.yaml ---> skillctl <--- profiles/*.yaml
-                            |
-                validate / registry / status
-                            |
-                    atomic sync/update
-                            |
-              Claude / Cursor / OpenCode
-                            |
-          central managed-install state manifest
-```
-
-The thin `skillctl` entry point delegates to small modules in `skobal/`.
-Adapter-specific destination and filesystem preparation behavior stays under
-`adapters/`. `registry.yaml` is generated and must not be edited by hand.
-
-## Skill metadata schema
-
-Each real skill contains `SKILL.md` plus a `skill.yaml` using schema version 1:
+A skill is a directory with `SKILL.md` (frontmatter: `name` + trigger
+`description`) and a `skill.yaml`:
 
 ```yaml
 schema_version: 1
-name: documentation
+name: my-skill
 version: 0.1.0
-description: Write and maintain accurate project documentation.
-targets: [claude, cursor]
-tags: [documentation]
-requires: []
+description: One-line purpose.
+targets: [claude]
 ```
 
-`schema_version` must be exactly `1`; unknown versions are rejected. `name` uses
-lowercase-hyphen form and must match the directory. `version` follows SemVer.
-`description` is non-empty, and `targets` is a non-empty list containing only
-installed adapter names. `tags` and `requires` are optional string lists.
-Duplicate skill names are rejected.
-
-`SKILL.md` frontmatter remains portable and contains only `name` and a
-trigger-oriented `description`. Run:
-
-```bash
-./skillctl validate
-./skillctl registry
-```
-
-Registry entries are sorted and include `name`, `version`, `schema_version`,
-repository-relative `path`, and `targets` (plus description and tags).
-
-## Profiles and synchronization
-
-A profile selects targets and skills:
+A profile picks targets and skills:
 
 ```yaml
 name: personal
 targets: [claude]
-skills: [documentation, hello-world]
+skills: [documentation, codex-control]
 ```
 
-Synchronize it with:
+Symlink mode is the default, so repository edits are live immediately;
+`--copy` makes independent copies.
 
-```bash
-./skillctl sync --profile personal --dry-run
-./skillctl sync --profile personal
-./skillctl sync --profile work --target cursor
-./skillctl sync --profile personal --copy
-./skillctl sync --profile personal --prune
-```
+## Safety model
 
-Symlink mode is the default: repository edits become visible immediately.
-`--copy` creates independent, complete directory copies. Prune only considers
-exact records in Skobal's central state manifest; an unmanaged path, a changed
-managed copy, a wrong-source symlink, or a missing/corrupt manifest is never
-deleted.
+- Nothing unmanaged is silently overwritten; `--force` backs up to
+  `.skobal-backups/` first and prints the path.
+- Installs are atomic transactions with rollback; state lives in a central
+  manifest outside the repo.
+- `update` only ever fast-forwards; dirty trees and failed pulls stop it.
+- `status` exits non-zero on any drift — safe for scripts and CI.
 
-Default destinations and test/automation overrides are:
-
-| Target | Default destination | Override |
-| --- | --- | --- |
-| Claude | `~/.claude/skills` | `SKOBAL_CLAUDE_DIR` |
-| Cursor | `~/.cursor/skills` | `SKOBAL_CURSOR_DIR` |
-| OpenCode | `~/.config/opencode/skills` | `SKOBAL_OPENCODE_DIR` |
-
-The managed state defaults to the platform data directory
-(`~/.local/share/skobal/installs.yaml` on Linux, the XDG data directory when
-configured, and local application data on Windows). Set `SKOBAL_STATE_DIR` to
-isolate it. State writes use a same-directory temporary file and `os.replace`;
-records are deterministically sorted. Symlink installs are always recorded.
-
-### Collisions and `--force`
-
-Sync classifies each destination before changing it:
-
-- an absent path is installed;
-- an intact Skobal-managed path is skipped or safely updated;
-- an unmanaged existing path is a conflict;
-- a dangling symlink or wrong-source managed install is a conflict.
-
-Nothing unmanaged is silently overwritten. If an unmanaged collision is known
-and intentional, use:
-
-```bash
-./skillctl sync --profile personal --force
-```
-
-Skobal first moves the existing path under the destination's timestamped
-`.skobal-backups/<timestamp>/<target>/<skill>/` directory, installs the skill,
-and prints the exact backup path. `--force` does not override dangling
-symlinks, wrong-source records, or modified managed copies; resolve those
-explicitly.
-
-### Atomicity and recovery
-
-Each install is its own transaction: validate the source, prepare and verify a
-complete same-filesystem temporary install, move the previous managed install
-aside, atomically replace the destination, then atomically update state.
-Failures remove temporary data and restore the previous destination whenever
-possible. Copy mode never exposes a partially copied final directory.
-
-After a normal reported failure, rerun `status`, correct the reported source,
-permission, or collision problem, then retry sync. If both the operation and
-rollback fail, the error prints the recovery path; preserve it, move it back to
-the printed destination manually, and verify before retrying. Never delete a
-backup until its contents have been reviewed.
-
-## Status
-
-Status is read-only and exits zero only when every selected entry is synced:
-
-```bash
-./skillctl status --profile personal
-./skillctl status --profile work --target cursor
-./skillctl status --profile personal --json
-```
-
-The deterministic human table and JSON output use these states: `synced`,
-`missing`, `modified`, `outdated`, `unmanaged-conflict`, `wrong-source`,
-`dangling-symlink`, and `unsupported`. JSON is suitable for scripts and CI.
-
-## Safe repository update
-
-`update` composes the safe maintenance pipeline:
-
-```bash
-./skillctl update --profile personal --dry-run
-./skillctl update --profile personal
-```
-
-It confirms the checkout is a Git repository, refuses a dirty working tree,
-runs only `git pull --ff-only`, validates skills, regenerates the registry, and
-syncs the selected profile. It never resets, force-pulls, rebases, resolves
-conflicts, or discards local changes. A failed fast-forward pull stops
-immediately; validation failure prevents registry and sync changes. Dry-run
-still checks repository cleanliness but performs no pull or filesystem writes.
-
-## Windows behavior
-
-All Python filesystem code uses `pathlib`, platform temporary directories, and
-same-filesystem `os.replace` operations. CI covers Windows, macOS, and Linux on
-Python 3.10 and 3.12.
-
-Creating symlinks on Windows can require Developer Mode or an appropriately
-privileged process. If symlink creation is denied, Skobal reports the operating
-system error and suggests the supported fallback:
-
-```powershell
-python skillctl sync --profile personal --copy
-```
-
-Copy mode has the same collision, state, rollback, prune, and status
-protections.
+Full details — architecture, schema rules, collision handling, atomicity,
+recovery, Windows notes: [docs/reference.md](docs/reference.md).
 
 ## Development
 
-Install the project and development tools:
-
 ```bash
 python3 -m pip install -e ".[dev]"
+python3 -m pytest -q && python3 -m ruff check . && ./skillctl validate
 ```
 
-Or install the declared tools directly:
-
-```bash
-python3 -m pip install --user PyYAML pytest ruff
-```
-
-Run the repository checks:
-
-```bash
-python3 -m pytest -q
-python3 -m ruff check .
-./skillctl validate
-./skillctl doctor
-```
-
-Tests always set `SKOBAL_CLAUDE_DIR`, `SKOBAL_CURSOR_DIR`,
-`SKOBAL_OPENCODE_DIR`, and `SKOBAL_STATE_DIR` to temporary paths; tests must
-never inspect or change a real home destination.
-
-## Recommended workflow
-
-```bash
-./skillctl new review-release
-# Edit skills/review-release/SKILL.md and skill.yaml, then add it to a profile.
-./skillctl validate review-release
-./skillctl registry
-./skillctl sync --profile personal --dry-run
-./skillctl sync --profile personal
-./skillctl status --profile personal
-./skillctl test review-release
-git add skills/review-release profiles registry.yaml
-git commit -m "Add review-release skill"
-git push
-```
-
-Before committing, review any `.skobal-backups` path reported by a forced sync
-and keep the central state directory out of the repository.
+CI runs Linux, macOS, and Windows on Python 3.10 and 3.12.

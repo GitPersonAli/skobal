@@ -1,6 +1,6 @@
 # Prompt contracts
 
-Spawn prompts are assembled from the openai-codex plugin's XML block system (`codex:gpt-5-4-prompting` skill — reuse its blocks; this file only adds the control-codex-specific ones). Operator style: one task per run, state what done looks like, tighten contracts before raising effort.
+Spawn prompts are assembled from the openai-codex plugin's XML block system (`codex:gpt-5-4-prompting` skill — reuse its blocks; this file only adds the codex-control-specific ones). Operator style: one task per run, state what done looks like, tighten contracts before raising effort.
 
 ## Spawn prompt skeleton (implementer step)
 

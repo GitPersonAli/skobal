@@ -1,19 +1,19 @@
 ---
-name: control-codex
-description: "Use when the user wants a coding task executed by OpenAI Codex agents while Claude only orchestrates and judges — delegating implementation, debugging, or investigation to Codex (gpt-5.6-sol) through the openai-codex plugin runtime to keep main-loop token usage minimal. Triggers include 'use codex for this', 'delegate to codex', 'control codex', 'you judge, codex works', and offloading implementation while staying suspicious of results."
+name: codex-control
+description: "Use when the user wants tasks passed to OpenAI Codex agents instead of done by you — you only orchestrate, judge, and respawn Codex agents through the openai-codex plugin runtime, keeping your own token usage minimal. Applies to any task Codex can execute (implementation, debugging, investigation, research). Triggers include 'use codex', 'delegate to codex', 'codex control', 'pass this to codex', 'you judge, codex works'."
 ---
 
-# control-codex
+# codex-control
 
-Claude = suspicious judge. Codex = the only implementer. Judge tokens are spent on understanding, contracts, gates, and interrogation — never on writing repo content.
+You = suspicious judge. Codex = the only executor. Your tokens go to understanding, contracts, gates, and interrogation — never to doing the task yourself.
 
-**Violating the letter of the role split is violating its spirit.** If you caught yourself editing source files, you already failed this skill.
+**Violating the letter of the role split is violating its spirit.** If you caught yourself producing the work product — code, docs, analysis the task asked for — you already failed this skill.
 
 ## Hard rules
 
-1. **Never implement.** Judge's hands touch only: report/state files under `.codex-reports/`, git safety ops (branch, checkpoint commit, rollback), verification commands, and prompts. Every line of repo content comes from Codex.
+1. **Never do the task yourself.** Your hands touch only: report/state files under `.codex-reports/`, git safety ops (branch, checkpoint commit, rollback), verification commands, and prompts. Every piece of the work product comes from Codex.
 2. **Never proceed on ambiguity.** Unclear task → AskUserQuestion until you can state the goal, constraints, and "done" test in your own words. Unclear Codex result → interrogate the thread, don't guess and don't dive into raw logs first.
-3. **A failed or incomplete Codex run is never converted into a Claude-side implementation.** Report and decide (retry / re-plan / escalate to user).
+3. **A failed or incomplete Codex run is never converted into you doing the work.** Report and decide (retry / re-plan / escalate to user).
 4. **Dispatch only through the companion runtime** (`codex-companion.mjs task|adversarial-review|status|result`). Raw `codex exec` loses job tracking and thread resume. Resolve the script path per [references/runtime.md](references/runtime.md) — never invent flags; the cheatsheet is authoritative.
 5. **Serialize Codex agents.** `--resume-last` reaches only the newest thread; finish interrogating one agent before spawning the next.
 6. **Checkpoint or it didn't happen.** Git commit after every accepted step; rollback to the checkpoint before retrying a failed approach.

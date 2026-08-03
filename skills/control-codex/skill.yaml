@@ -1,7 +1,0 @@
-schema_version: 1
-name: control-codex
-version: 0.1.0
-description: Orchestrate coding tasks as a token-thrifty judge that delegates all implementation to OpenAI Codex agents via the openai-codex plugin runtime.
-tags: [codex, orchestration, delegation, judge]
-targets: [claude]
-requires: []

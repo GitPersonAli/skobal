@@ -10,7 +10,7 @@ def test_frontmatter_matches_directory() -> None:
     _, frontmatter, _ = text.split("---", maxsplit=2)
     metadata = yaml.safe_load(frontmatter)
 
-    assert metadata["name"] == "control-codex"
+    assert metadata["name"] == "codex-control"
     assert metadata["description"].startswith("Use when")
 
 
