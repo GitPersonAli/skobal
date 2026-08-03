@@ -25,7 +25,8 @@ node "$COMPANION" transfer [--source <claude-jsonl>]   # current Claude session 
 ```
 
 - Implementation steps: add `--write`. Investigation/diagnosis-only steps: omit it.
-- `--background` + `status --json` polling is the default dispatch mode; `--wait` only for tiny bounded asks.
+- `--background` + `status --json` polling is the default dispatch mode; `--wait` only for tiny bounded asks. Poll handles **every terminal state** (completed | failed | cancelled), not just success.
+- Codex sandboxes often have no network: its "tests failed: EPERM/network" claim is a sandbox artifact, not evidence — the judge's own verification run decides.
 - `--resume-last` continues the **newest** thread in this repo — there is no thread-id targeting. Hence: serialize agents.
 - Review commands return schema-enforced JSON (verdict `approve|needs-attention`, findings with severity/file/line/confidence, next_steps) — gate on that, not prose.
 
@@ -42,6 +43,8 @@ Effort ceiling is `xhigh` — `max`/`ultra` do not exist as effort values. "Ultr
 Reviewer runs are always ≥ L: the critic is never weaker than the implementer. Interrogation resumes: keep model/effort unset (inherit thread; mid-thread model switch is untested).
 
 ## Failure ladder (per step)
+
+Applies to **task failures** (Codex ran and produced a wrong/incomplete result). A dispatch that dies at startup (0–10s, no model turn) is an **environment failure**: it never consumes a ladder attempt — max 2 per task, then stop dispatching and debug the environment (stale companion broker, CLI/config drift; see the dispatch-or-direct skill's preflight).
 
 1. **Delta-retry** (default): `task --resume-last --write "<what failed, observed evidence, try Y>"` — send only the delta, never restate the whole task.
 2. **Re-plan**: insert/split steps in `plan.json` (e.g. failed step 03 → 03a investigate + 03b apply), continue same thread.

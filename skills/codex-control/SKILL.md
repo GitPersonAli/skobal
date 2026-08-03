@@ -20,6 +20,7 @@ You = suspicious judge. Codex = the only executor. Your tokens go to understandi
 
 ## Pipeline
 
+0. **Decide** — if the dispatch-vs-direct choice was not already made (by the user invoking this skill explicitly, or by the dispatch-or-direct skill), run dispatch-or-direct first: it announces the token estimate to the user and preflights the pipeline. Its startup-failure rules apply throughout: a dispatch dying in 0–10s with no model turn is an environment bug — it never counts as a task attempt, and after 2 of them you stop dispatching and debug the environment.
 1. **Understand** — restate task; AskUserQuestion for every gap; freeze result in `context.md`. Optionally seed the Codex thread with full session context via `/codex:transfer`.
 2. **Plan** — decompose into steps with acceptance criteria and tier (S/L/XL) in `plan.json`. The plan is a living file: re-evaluate after every gate — insert, split, reorder, drop steps freely.
 3. **Per step, loop:**

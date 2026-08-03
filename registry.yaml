@@ -1,6 +1,6 @@
 skills:
 - name: codex-control
-  version: 0.2.0
+  version: 0.3.0
   schema_version: 1
   description: Pass tasks to OpenAI Codex agents and act only as a token-thrifty orchestrator-judge via the openai-codex plugin runtime.
   path: skills/codex-control
@@ -9,6 +9,18 @@ skills:
   - delegation
   - judge
   - orchestration
+  targets:
+  - claude
+- name: dispatch-or-direct
+  version: 0.1.0
+  schema_version: 1
+  description: Decide whether to hand work to an external executor agent or do it directly, with a user-facing token estimate, startup-failure caps, and pipeline preflight.
+  path: skills/dispatch-or-direct
+  tags:
+  - codex
+  - cost
+  - decision
+  - delegation
   targets:
   - claude
 - name: documentation

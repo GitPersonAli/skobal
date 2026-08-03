@@ -67,6 +67,7 @@ def test_status_reports_modified_outdated_unmanaged_and_dangling(
     assert result.returncode == 1
     assert statuses == {
         "codex-control": "synced",
+        "dispatch-or-direct": "synced",
         "documentation": "modified",
         "hello-world": "outdated",
     }

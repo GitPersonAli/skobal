@@ -1,0 +1,7 @@
+schema_version: 1
+name: dispatch-or-direct
+version: 0.1.0
+description: Decide whether to hand work to an external executor agent or do it directly, with a user-facing token estimate, startup-failure caps, and pipeline preflight.
+tags: [codex, delegation, cost, decision]
+targets: [claude]
+requires: []
