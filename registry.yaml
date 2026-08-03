@@ -1,4 +1,16 @@
 skills:
+- name: control-codex
+  version: 0.1.0
+  schema_version: 1
+  description: Orchestrate coding tasks as a token-thrifty judge that delegates all implementation to OpenAI Codex agents via the openai-codex plugin runtime.
+  path: skills/control-codex
+  tags:
+  - codex
+  - delegation
+  - judge
+  - orchestration
+  targets:
+  - claude
 - name: documentation
   version: 0.1.0
   schema_version: 1
