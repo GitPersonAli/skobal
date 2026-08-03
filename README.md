@@ -1,6 +1,6 @@
 # Skobal
 
-[![CI](https://github.com/YOUR_USERNAME/skobal/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/skobal/actions/workflows/ci.yml)
+[![CI](https://github.com/GitPersonAli/skobal/actions/workflows/ci.yml/badge.svg)](https://github.com/GitPersonAli/skobal/actions/workflows/ci.yml)
 
 Skobal is a local-first, Git-backed catalog of portable AI-agent skills.
 Profiles select skill sets, and filesystem adapters install them for Claude,
@@ -8,13 +8,36 @@ Cursor, and OpenCode. There is no server, account, database, or marketplace.
 
 ## Installation
 
-Skobal requires Python 3.10 or newer and PyYAML:
+One command — installs to `~/.skobal` and syncs the `personal` profile:
 
 ```bash
-git clone <your-skobal-repository-url> skobal
+curl -fsSL https://raw.githubusercontent.com/GitPersonAli/skobal/main/install.sh | bash
+```
+
+**Updating is the same command.** Rerunning it on an existing install performs
+the safe update pipeline (`git pull --ff-only`, validate, regenerate registry,
+sync). Equivalent direct form:
+
+```bash
+~/.skobal/skillctl update --profile personal
+```
+
+The script checks Git and Python 3.10+, installs PyYAML if missing, then
+clones or fast-forwards and syncs. Pick another location, profile, or fork via
+environment variables (note: they go before `bash`, not before `curl`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/GitPersonAli/skobal/main/install.sh \
+  | SKOBAL_PROFILE=work SKOBAL_DIR=~/dev/skobal bash
+```
+
+Manual alternative (any path):
+
+```bash
+git clone https://github.com/GitPersonAli/skobal.git skobal
 cd skobal
 python3 -m pip install PyYAML
-./skillctl validate
+./skillctl sync --profile personal
 ```
 
 The executable remains the entry point for every command:

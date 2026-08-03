@@ -2,7 +2,6 @@ from pathlib import Path
 
 import yaml
 
-
 SKILL_DIR = Path(__file__).resolve().parents[1]
 
 
@@ -24,7 +23,7 @@ def test_reference_files_exist_and_are_linked() -> None:
 
 def test_runtime_facts_stay_authoritative() -> None:
     runtime = (SKILL_DIR / "references" / "runtime.md").read_text(encoding="utf-8")
-    # Guard the verified constraints; if these change upstream, re-verify the whole file.
+    # Guard verified constraints; if these change upstream, re-verify the file.
     assert "codex-companion.mjs" in runtime
     assert "--resume-last" in runtime
     assert "xhigh" in runtime

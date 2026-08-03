@@ -15,6 +15,9 @@ dev = [
   "ruff>=0.6",
 ]
 
+[tool.setuptools]
+packages = ["skobal", "adapters"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
