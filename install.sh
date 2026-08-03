@@ -25,16 +25,43 @@ if ! "$PY" -c 'import yaml' >/dev/null 2>&1; then
     || die "could not install PyYAML; install it with your package manager (e.g. apt install python3-yaml) and rerun"
 fi
 
+# If skills are already managed by another checkout on this machine, use that
+# checkout instead of cloning a competing one (its symlinks reveal the source).
+if [ ! -d "$SKOBAL_DIR/.git" ]; then
+  for link in "$HOME/.claude/skills"/*; do
+    [ -L "$link" ] || continue
+    target="$(readlink "$link")" || continue
+    candidate="${target%/skills/*}"
+    if [ -d "$candidate/.git" ] && [ -f "$candidate/skillctl" ]; then
+      say "skills already managed from $candidate — updating that checkout instead"
+      say "(to force a separate install, rerun with SKOBAL_DIR=/some/other/path after removing the old one)"
+      SKOBAL_DIR="$candidate"
+      break
+    fi
+  done
+fi
+
+sync_hint() {
+  cat >&2 <<'HINT'
+[skobal] sync refused (see error above). Most common cause: another skobal
+[skobal] checkout already manages these skills. Fix one of:
+[skobal]   - rerun with SKOBAL_DIR=<that checkout>  (updates it in place)
+[skobal]   - or retire the old checkout: remove its symlinks from the skills
+[skobal]     directory, then rerun this installer
+HINT
+  exit 1
+}
+
 if [ -d "$SKOBAL_DIR/.git" ]; then
   say "existing checkout at $SKOBAL_DIR — running safe update"
   cd "$SKOBAL_DIR"
-  "$PY" skillctl update --profile "$PROFILE"
+  "$PY" skillctl update --profile "$PROFILE" || sync_hint
 else
   say "cloning $REPO_URL -> $SKOBAL_DIR"
   git clone --quiet "$REPO_URL" "$SKOBAL_DIR"
   cd "$SKOBAL_DIR"
   "$PY" skillctl validate
-  "$PY" skillctl sync --profile "$PROFILE"
+  "$PY" skillctl sync --profile "$PROFILE" || sync_hint
 fi
 
 "$PY" skillctl status --profile "$PROFILE" || true
