@@ -6,6 +6,7 @@
 set -euo pipefail
 
 REPO_URL="${SKOBAL_REPO:-https://github.com/GitPersonAli/skobal.git}"
+SKOBAL_DIR_EXPLICIT="${SKOBAL_DIR:+yes}"
 SKOBAL_DIR="${SKOBAL_DIR:-$HOME/.skobal}"
 PROFILE="${SKOBAL_PROFILE:-personal}"
 
@@ -27,7 +28,8 @@ fi
 
 # If skills are already managed by another checkout on this machine, use that
 # checkout instead of cloning a competing one (its symlinks reveal the source).
-if [ ! -d "$SKOBAL_DIR/.git" ]; then
+# An explicit SKOBAL_DIR always wins — never second-guess the user's choice.
+if [ -z "$SKOBAL_DIR_EXPLICIT" ] && [ ! -d "$SKOBAL_DIR/.git" ]; then
   for link in "$HOME/.claude/skills"/*; do
     [ -L "$link" ] || continue
     target="$(readlink "$link")" || continue
