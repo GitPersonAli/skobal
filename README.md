@@ -23,6 +23,11 @@ curl -fsSL https://raw.githubusercontent.com/GitPersonAli/skobal/main/install.sh
   | SKOBAL_PROFILE=work SKOBAL_DIR=~/dev/skobal bash
 ```
 
+Already installed elsewhere on the machine? A bare rerun always updates the
+checkout that currently manages your skills, wherever it is. To **move** the
+install to a new path, add `SKOBAL_MIGRATE=1` next to `SKOBAL_DIR=...` — the
+old checkout's symlinks are released and left on disk for you to delete.
+
 Manual install (any path):
 
 ```bash

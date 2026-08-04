@@ -26,21 +26,48 @@ if ! "$PY" -c 'import yaml' >/dev/null 2>&1; then
     || die "could not install PyYAML; install it with your package manager (e.g. apt install python3-yaml) and rerun"
 fi
 
-# If skills are already managed by another checkout on this machine, use that
-# checkout instead of cloning a competing one (its symlinks reveal the source).
-# An explicit SKOBAL_DIR always wins — never second-guess the user's choice.
-if [ -z "$SKOBAL_DIR_EXPLICIT" ] && [ ! -d "$SKOBAL_DIR/.git" ]; then
+# Find a checkout (other than SKOBAL_DIR) that already manages skills here —
+# its symlinks reveal the source.
+find_foreign_owner() {
   for link in "$HOME/.claude/skills"/*; do
     [ -L "$link" ] || continue
     target="$(readlink "$link")" || continue
     candidate="${target%/skills/*}"
-    if [ -d "$candidate/.git" ] && [ -f "$candidate/skillctl" ]; then
-      say "skills already managed from $candidate — updating that checkout instead"
-      say "(to force a separate install, rerun with SKOBAL_DIR=/some/other/path after removing the old one)"
-      SKOBAL_DIR="$candidate"
-      break
+    if [ -d "$candidate/.git" ] && [ -f "$candidate/skillctl" ] \
+       && [ "$candidate" != "$SKOBAL_DIR" ]; then
+      printf '%s' "$candidate"
+      return 0
     fi
   done
+  return 1
+}
+
+if [ -z "$SKOBAL_DIR_EXPLICIT" ]; then
+  # No explicit choice: always follow the checkout that actually manages the
+  # skills (a stale default-path clone must not shadow a migrated install).
+  if owner="$(find_foreign_owner)"; then
+    say "skills already managed from $owner — updating that checkout instead"
+    say "(to force a separate install, rerun with SKOBAL_DIR=/some/other/path)"
+    SKOBAL_DIR="$owner"
+  fi
+elif [ -n "$SKOBAL_DIR_EXPLICIT" ] && owner="$(find_foreign_owner)"; then
+  # Explicit choice while another checkout owns the skills: migrate or explain.
+  if [ "${SKOBAL_MIGRATE:-}" = "1" ]; then
+    say "migrating management: $owner -> $SKOBAL_DIR"
+    for link in "$HOME/.claude/skills"/*; do
+      [ -L "$link" ] || continue
+      case "$(readlink "$link")" in "$owner"/*) rm "$link"; say "released $(basename "$link")";; esac
+    done
+    say "old checkout left on disk at $owner — delete it yourself when ready"
+  else
+    cat >&2 <<EOF
+[skobal] error: skills here are managed from another checkout: $owner
+[skobal] You asked for a new install at $SKOBAL_DIR. Pick one:
+[skobal]   - migrate management to $SKOBAL_DIR: rerun with SKOBAL_MIGRATE=1
+[skobal]   - or keep the existing install:      cd $owner && ./skillctl update
+EOF
+    exit 1
+  fi
 fi
 
 sync_hint() {
