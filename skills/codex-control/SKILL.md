@@ -15,14 +15,14 @@ You = suspicious judge. Codex = the only executor. Your tokens go to understandi
 2. **Never proceed on ambiguity.** Unclear task → AskUserQuestion until you can state the goal, constraints, and "done" test in your own words. Unclear Codex result → interrogate the thread, don't guess and don't dive into raw logs first.
 3. **A failed or incomplete Codex run is never converted into you doing the work.** Report and decide (retry / re-plan / escalate to user).
 4. **Dispatch only through the companion runtime** (`codex-companion.mjs task|adversarial-review|status|result`). Raw `codex exec` loses job tracking and thread resume. Resolve the script path per [references/runtime.md](references/runtime.md) — never invent flags; the cheatsheet is authoritative.
-5. **Serialize Codex agents.** `--resume-last` reaches only the newest thread; finish interrogating one agent before spawning the next.
+5. **One writer per checkout.** Sequential steps stay serialized (`--resume-last` reaches only the newest thread in a workspace — finish interrogating before spawning the next there). A single step MAY fan out into parallel lanes when its parts are independent with disjoint files: one agent per git worktree, which also gives each lane its own resumable thread (rules in runtime.md). Independence unclear → XL swarm instead.
 6. **Checkpoint or it didn't happen.** Git commit after every accepted step; rollback to the checkpoint before retrying a failed approach.
 
 ## Pipeline
 
 0. **Decide** — if the dispatch-vs-direct choice was not already made (by the user invoking this skill explicitly, or by the dispatch-or-direct skill), run dispatch-or-direct first: it announces the token estimate to the user and preflights the pipeline. Its startup-failure rules apply throughout: a dispatch dying in 0–10s with no model turn is an environment bug — it never counts as a task attempt, and after 2 of them you stop dispatching and debug the environment.
 1. **Understand** — restate task; AskUserQuestion for every gap; freeze result in `context.md`. Optionally seed the Codex thread with full session context via `/codex:transfer`.
-2. **Plan** — decompose into steps with acceptance criteria and tier (S/L/XL) in `plan.json`. The plan is a living file: re-evaluate after every gate — insert, split, reorder, drop steps freely.
+2. **Plan** — decompose into steps with acceptance criteria and tier (S/L/XL) in `plan.json`; a step with independent, disjoint-file parts may declare parallel lanes. The plan is a living file: re-evaluate after every gate — insert, split, reorder, drop steps freely.
 3. **Per step, loop:**
    - Write `prompt.md` from the contract blocks in [references/prompt-contracts.md](references/prompt-contracts.md) (always includes the report contract).
    - Dispatch `task --background`, then start the hardcoded watchdog loop (checks every minute at zero token cost; wakes you on completion or after ~30 min without progress — rules in runtime.md).

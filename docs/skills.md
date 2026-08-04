@@ -93,7 +93,10 @@ dispatch branch.
 3. **Execute per step** — a Codex agent is spawned through the plugin's
    companion runtime with an XML prompt contract; a hardcoded watchdog loop
    checks it every minute at zero token cost and wakes the judge on
-   completion or after ~30 minutes without progress.
+   completion or after ~30 minutes without progress. A step with
+   independent, disjoint-file parts fans out into **parallel lanes** — one
+   agent per git worktree, each with its own resumable thread, gated
+   independently and merged in fixed order.
 4. **Gate** — the judge reads only the agent's `recap.md` (≤60 lines,
    pointer-indexed), then verifies independently: reruns the verification
    command itself, checks the diff against the step's file allowlist, greps

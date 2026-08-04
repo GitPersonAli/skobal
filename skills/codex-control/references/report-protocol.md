@@ -11,7 +11,7 @@ Communication between judge and Codex agents is file-based, indexed, and durable
     context.md                        # frozen understand-phase output
     baseline.sha
     01_investigate-db-schema/         # {NN}_{slug}; insertions get 01a_, 01b_
-      implementer/                    # role: implementer | reviewer
+      implementer/                    # role: implementer | reviewer | lane-<slug>
         prompt.md                     # exact spawn prompt, judge-written, frozen
         recap.md                      # THE contract file (template below)
         qa.md                         # interrogation log, append-only
@@ -37,6 +37,17 @@ Communication between judge and Codex agents is file-based, indexed, and durable
 ```
 
 `status`: `pending|active|done|failed|dropped`. Re-evaluate the whole list after every gate; inserting/splitting/reordering is normal operation, not an exception.
+
+A parallel step adds a `lanes` list; each lane mirrors a step entry (allowlist, accept, attempts, status) and reports into its own `lane-<slug>/` dir:
+
+```json
+{"id": "04_port-adapters", "tier": "L", "status": "active",
+ "lanes": [
+   {"id": "a-claude",  "paths": ["adapters/claude.py"],  "status": "active", "attempts": 0},
+   {"id": "b-cursor",  "paths": ["adapters/cursor.py"],  "status": "done",   "attempts": 1}
+ ],
+ "accept": "all lanes gated, merged in order, step verification green"}
+```
 
 ## recap.md template (Codex fills; judge pre-creates the stub)
 

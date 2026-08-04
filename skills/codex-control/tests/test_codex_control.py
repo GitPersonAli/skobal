@@ -29,3 +29,4 @@ def test_runtime_facts_stay_authoritative() -> None:
     assert "xhigh" in runtime
     assert "gpt-5.6-sol" in runtime
     assert "WATCHDOG: STALLED" in runtime, "watchdog stall detection missing"
+    assert "Parallel lanes" in runtime, "parallel lanes section missing"

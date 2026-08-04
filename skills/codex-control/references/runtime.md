@@ -66,6 +66,28 @@ The loop exits — and re-invokes you — on exactly two events. Your judgment o
 - `WATCHDOG: STALLED` → ~30 minutes of identical `phase` + summary (growing `elapsed` alone is not progress — it's excluded from the signature). Then: `cancel <job-id>`, `task --resume-last "you were cancelled mid-run; continue from where you stopped"` — the thread survives job cancellation — and restart the watchdog. A stall recovery does not consume a task attempt.
 - Same step stalls a second time → stop dispatching, report to the user: that smells like a runtime/environment problem (stale broker, dead daemon — see the dispatch-or-direct preflight), not a task problem.
 
+## Parallel lanes — splitting one step across agents
+
+A step whose work divides into **independent parts with disjoint files** may run as parallel lanes, one Codex agent each. If independence is unclear, prefer the XL swarm block instead (Codex coordinates its own agents internally, judge keeps one thread). Never let two agents write the same checkout.
+
+Isolation and the thread-targeting unlock: companion job/thread state is keyed by **workspace root**, so each lane gets its own git worktree — which also gives each lane its own `--resume-last` namespace. Interrogation and delta-retry work per lane by running the companion **from inside that lane's worktree**:
+
+```bash
+git worktree add ".codex-worktrees/${STEP}-a" codex/<task-slug>   # one per write lane
+cd ".codex-worktrees/${STEP}-a" && node "$COMPANION" task --background --write ... # spawn lane A
+# later, interrogate lane A specifically:
+cd ".codex-worktrees/${STEP}-a" && node "$COMPANION" task --resume-last "<question>"
+```
+
+Rules:
+
+- Every lane declares a **disjoint path allowlist** in its prompt; overlap = don't parallelize, serialize or swarm instead.
+- Read-only lanes (investigation fan-out) need no worktree — but then only the newest thread is reachable for follow-ups; spawn them from the main checkout only when recap-only reporting is acceptable.
+- One watchdog loop covers all lanes: iterate the lane worktrees, `status --all --json` in each; stalled lanes are handled per lane (cancel + resume-continue inside that worktree).
+- **Gate each lane's recap independently**, then merge lanes into the task branch in a fixed order, rerun the step-level verification on the merged result, and only then checkpoint the step. A merge conflict means the allowlists weren't really disjoint — judge re-plans, never hand-resolves content.
+- Attempts count per lane. A failed lane retries alone; passing lanes are not re-run.
+- Cleanup after the step checkpoint: `git worktree remove ".codex-worktrees/${STEP}-a"`.
+
 ## Failure ladder (per step)
 
 Applies to **task failures** (Codex ran and produced a wrong/incomplete result). A dispatch that dies at startup (0–10s, no model turn) is an **environment failure**: it never consumes a ladder attempt — max 2 per task, then stop dispatching and debug the environment (stale companion broker, CLI/config drift; see the dispatch-or-direct skill's preflight).
