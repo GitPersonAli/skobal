@@ -16,7 +16,7 @@ Offload estimate — dispatch: ~<hand-off + monitoring + review> tokens on me, w
 Direct: ~<my implementation + verification> tokens. Recommendation: <dispatch|direct> because <one line>.
 ```
 
-Close call or user preference unknown → ask (dispatch / direct). Obvious branch → state it and proceed. Dispatch branch → execute through the codex-control skill (full orchestration protocol); this skill only decides and preflights.
+Close call or user preference unknown → ask (dispatch / direct). Obvious branch → state it and proceed. The moment the decision lands on dispatch, **invoke the codex-control skill and continue there** — automatically, without waiting for the user to name it; this skill only decides and preflights, it never runs the delegation itself.
 
 ## Decision table
 

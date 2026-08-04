@@ -33,6 +33,17 @@ cd skobal && python3 -m pip install PyYAML && ./skillctl sync --profile personal
 Requires Git and Python 3.10+. On Windows use `python skillctl ...`; if
 symlinks are denied, add `--copy`.
 
+## Skills
+
+| Skill | What it does |
+| --- | --- |
+| `dispatch-or-direct` | Decide whether to offload work to an external agent or do it directly — announces a token estimate, preflights the pipeline, caps startup-failure retries |
+| `codex-control` | Run any task through OpenAI Codex agents while the main agent acts only as a suspicious judge — plans, gates, interrogates, checkpoints; never does the work itself |
+
+They pair: dispatch-or-direct decides, and its dispatch branch hands over to
+codex-control automatically. Short + detailed usage per skill:
+[docs/skills.md](docs/skills.md).
+
 ## Daily commands
 
 | Command | Does |
