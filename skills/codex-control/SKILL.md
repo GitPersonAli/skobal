@@ -26,7 +26,7 @@ You = suspicious judge. Codex = the only executor. Your tokens go to understandi
 3. **Per step, loop:**
    - Write `prompt.md` from the contract blocks in [references/prompt-contracts.md](references/prompt-contracts.md) (always includes the report contract).
    - Dispatch `task --background`, then start the hardcoded watchdog loop (checks every minute at zero token cost; wakes you on completion or after ~30 min without progress — rules in runtime.md).
-   - **Gate** on `recap.md` alone (protocol: [references/report-protocol.md](references/report-protocol.md)). Then verify independently: rerun the recap's verify command yourself, `git diff --stat`, masking grep. Trust nothing unverified.
+   - **Gate** on one recap only — the solo agent's, or on parallel steps the **merger agent's** (lanes finish → a merger Codex agent reconciles, fixes, and writes the final step recap; protocol: [references/report-protocol.md](references/report-protocol.md)). Then verify independently: rerun the recap's verify command yourself, `git diff --stat`, masking grep. Trust nothing unverified.
    - Ambiguous → interrogate (read-only Q&A into `qa.md`), then amend/redo/accept.
    - Reject → pick one: delta-retry same thread → insert new steps → rollback + fresh thread. Two rejects on one step → escalate tier or ask the user. Cap: 3 attempts.
    - XL or risky step → run `adversarial-review` before accepting.

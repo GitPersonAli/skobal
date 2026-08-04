@@ -72,6 +72,36 @@ unified recap.md covering the whole step, with per-part evidence in details/ and
 </swarm_block>
 ```
 
+## Merger spawn (parallel steps, `task --write` in the main task-branch checkout)
+
+```xml
+<task>
+Finalize step {NN}_{slug} of task {task}. {N} parallel lanes completed their parts on
+lane branches: {codex/<task>/NN-a: <scope>, codex/<task>/NN-b: <scope>, ...}.
+Their reports are in .codex-reports/{task}/{NN}_{slug}/agents/lane-*/.
+Step acceptance: {criterion from plan.json, verbatim}
+</task>
+
+<merge_contract>
+1. Read every lane recap (and details/raw where a claim needs checking).
+2. Merge the lane branches into this branch in the order given above; resolve any
+   conflicts yourself.
+3. Fix cross-lane inconsistencies (naming, duplicated helpers, divergent patterns)
+   so the merged result reads as one coherent change meeting the acceptance criterion.
+4. Run the step-level verification and record the exact command + result.
+5. Write the final step recap to .codex-reports/{task}/{NN}_{slug}/merger/recap.md —
+   standard recap contract, plus one disposition line per lane:
+   lane-<slug>: accepted | amended | reworked -> pointer to what changed and why.
+6. If the lanes are irreconcilable, stop: status blocked in the recap, with the
+   conflicting claims quoted — do not force a merge that fakes coherence.
+</merge_contract>
+
+<integrity_contract>
+End committed-or-clean on this branch; lane branches must be left untouched apart
+from being merged. Do not push.
+</integrity_contract>
+```
+
 ## Fresh-thread respawn (after rollback)
 
 Include: the frozen `context.md` summary (or note that the thread was seeded via `/codex:transfer`), what approach was tried, 1–3 bullets why it was rejected, and the standard spawn skeleton. A fresh thread knows nothing — the poisoned history is the thing you are escaping, so do not resume it.
