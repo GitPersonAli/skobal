@@ -44,20 +44,28 @@ Reviewer runs are always ≥ L: the critic is never weaker than the implementer.
 
 ## Watchdog — silent jobs get a 15-minute heartbeat
 
-A `--background` dispatch normally announces its own completion. From the moment agents are running (one or several in parallel), if no completion signal has arrived, check on them **every 15 minutes** — never sit blind, and never poll tighter (tokens for nothing). Token-free pattern: a background heartbeat loop whose exit re-invokes you:
+A `--background` dispatch normally announces its own completion. From the moment agents are running (one or several in parallel), if no completion signal has arrived, they are checked **every 15 minutes** — never sit blind, and never poll tighter (tokens for nothing).
+
+Division of labor: a **hardcoded background loop** does the waiting and the mechanical snapshot comparison (no model, zero tokens while sleeping); **you** are re-invoked only when it exits, and only you make the judgment call. Start it via Bash `run_in_background` right after dispatch:
 
 ```bash
+prev=""; same=0
 while :; do
   sleep 900
   node "$COMPANION" status --all --json > "$STEP/raw/watchdog.json"
-  grep -qE '"status": *"(running|queued)"' "$STEP/raw/watchdog.json" || break
-done   # run via Bash run_in_background; loop ends when no job is left running
+  grep -qE '"status": *"(running|queued)"' "$STEP/raw/watchdog.json" \
+    || { echo "WATCHDOG: DONE"; break; }
+  sig=$(grep -oE '"(phase|summary)": *"[^"]*"' "$STEP/raw/watchdog.json" | tr '\n' '|')
+  if [ "$sig" = "$prev" ]; then same=$((same+1)); else same=0; fi
+  [ "$same" -ge 2 ] && { echo "WATCHDOG: STALLED"; break; }
+  prev="$sig"
+done
 ```
 
-Each heartbeat compares against the previous snapshot (`phase`, `elapsed`, summary):
+The loop exits — and re-invokes you — on exactly two events. Your judgment on wake:
 
-- Progress visible → keep waiting. Long-running ≠ stuck.
-- **Two consecutive checks (30 min) with zero progress → stalled.** `cancel <job-id>`, then `task --resume-last "you were cancelled mid-run; continue from where you stopped"` — the thread survives job cancellation. A stall recovery does not consume a task attempt.
+- `WATCHDOG: DONE` → jobs left running state; fetch recaps and gate normally.
+- `WATCHDOG: STALLED` → 30 minutes with identical `phase` + summary (growing `elapsed` alone is not progress — it's excluded from the signature). Then: `cancel <job-id>`, `task --resume-last "you were cancelled mid-run; continue from where you stopped"` — the thread survives job cancellation — and restart the watchdog. A stall recovery does not consume a task attempt.
 - Same step stalls a second time → stop dispatching, report to the user: that smells like a runtime/environment problem (stale broker, dead daemon — see the dispatch-or-direct preflight), not a task problem.
 
 ## Failure ladder (per step)
