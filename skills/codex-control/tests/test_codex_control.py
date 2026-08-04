@@ -28,3 +28,4 @@ def test_runtime_facts_stay_authoritative() -> None:
     assert "--resume-last" in runtime
     assert "xhigh" in runtime
     assert "gpt-5.6-sol" in runtime
+    assert "every 15 minutes" in runtime, "watchdog heartbeat rule missing"

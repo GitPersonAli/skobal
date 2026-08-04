@@ -25,7 +25,7 @@ You = suspicious judge. Codex = the only executor. Your tokens go to understandi
 2. **Plan** — decompose into steps with acceptance criteria and tier (S/L/XL) in `plan.json`. The plan is a living file: re-evaluate after every gate — insert, split, reorder, drop steps freely.
 3. **Per step, loop:**
    - Write `prompt.md` from the contract blocks in [references/prompt-contracts.md](references/prompt-contracts.md) (always includes the report contract).
-   - Dispatch `task --background`, poll `status --json` cheaply.
+   - Dispatch `task --background`, poll `status --json` cheaply. Silent job → heartbeat every 15 minutes; two heartbeats without progress → stalled (watchdog rules in runtime.md).
    - **Gate** on `recap.md` alone (protocol: [references/report-protocol.md](references/report-protocol.md)). Then verify independently: rerun the recap's verify command yourself, `git diff --stat`, masking grep. Trust nothing unverified.
    - Ambiguous → interrogate (read-only Q&A into `qa.md`), then amend/redo/accept.
    - Reject → pick one: delta-retry same thread → insert new steps → rollback + fresh thread. Two rejects on one step → escalate tier or ask the user. Cap: 3 attempts.

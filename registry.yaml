@@ -1,6 +1,6 @@
 skills:
 - name: codex-control
-  version: 0.3.0
+  version: 0.4.0
   schema_version: 1
   description: Pass tasks to OpenAI Codex agents and act only as a token-thrifty orchestrator-judge via the openai-codex plugin runtime.
   path: skills/codex-control

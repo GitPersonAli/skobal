@@ -42,6 +42,24 @@ Effort ceiling is `xhigh` — `max`/`ultra` do not exist as effort values. "Ultr
 
 Reviewer runs are always ≥ L: the critic is never weaker than the implementer. Interrogation resumes: keep model/effort unset (inherit thread; mid-thread model switch is untested).
 
+## Watchdog — silent jobs get a 15-minute heartbeat
+
+A `--background` dispatch normally announces its own completion. From the moment agents are running (one or several in parallel), if no completion signal has arrived, check on them **every 15 minutes** — never sit blind, and never poll tighter (tokens for nothing). Token-free pattern: a background heartbeat loop whose exit re-invokes you:
+
+```bash
+while :; do
+  sleep 900
+  node "$COMPANION" status --all --json > "$STEP/raw/watchdog.json"
+  grep -qE '"status": *"(running|queued)"' "$STEP/raw/watchdog.json" || break
+done   # run via Bash run_in_background; loop ends when no job is left running
+```
+
+Each heartbeat compares against the previous snapshot (`phase`, `elapsed`, summary):
+
+- Progress visible → keep waiting. Long-running ≠ stuck.
+- **Two consecutive checks (30 min) with zero progress → stalled.** `cancel <job-id>`, then `task --resume-last "you were cancelled mid-run; continue from where you stopped"` — the thread survives job cancellation. A stall recovery does not consume a task attempt.
+- Same step stalls a second time → stop dispatching, report to the user: that smells like a runtime/environment problem (stale broker, dead daemon — see the dispatch-or-direct preflight), not a task problem.
+
 ## Failure ladder (per step)
 
 Applies to **task failures** (Codex ran and produced a wrong/incomplete result). A dispatch that dies at startup (0–10s, no model turn) is an **environment failure**: it never consumes a ladder attempt — max 2 per task, then stop dispatching and debug the environment (stale companion broker, CLI/config drift; see the dispatch-or-direct skill's preflight).
