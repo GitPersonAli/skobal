@@ -47,22 +47,29 @@ Reviewer runs are always ≥ L: the critic is never weaker than the implementer.
 A `--background` dispatch normally announces its own completion. From the moment agents are running (one or several in parallel), a **hardcoded background loop** watches them — checking every minute, because a shell loop costs nothing: no model runs, no context is consumed until something actually happens. **You** are re-invoked only when it exits, and only you make the judgment call. Cadence lives in the hardcode; the ~30-minute stall window lives in the beat count, not the beat interval. Start it via Bash `run_in_background` right after dispatch:
 
 ```bash
+# RAW must be absolute (background shells don't inherit your cwd) and must point
+# at the step's per-agent raw dir — there is no raw/ directly under the step dir.
+RAW="$PWD/.codex-reports/<task>/${STEP}/implementer/raw"   # parallel step: that lane's agents/lane-<slug>/raw
+mkdir -p "$RAW"
 prev=""; same=0
 while :; do
   sleep 60
-  node "$COMPANION" status --all --json > "$STEP/raw/watchdog.json"
-  grep -qE '"status": *"(running|queued)"' "$STEP/raw/watchdog.json" \
+  node "$COMPANION" status --all --json > "$RAW/watchdog.json" \
+    || { echo "WATCHDOG: ERROR (status poll failed)"; break; }
+  [ -s "$RAW/watchdog.json" ] || { echo "WATCHDOG: ERROR (empty status)"; break; }
+  grep -qE '"status": *"(running|queued)"' "$RAW/watchdog.json" \
     || { echo "WATCHDOG: DONE"; break; }
-  sig=$(grep -oE '"(phase|summary)": *"[^"]*"' "$STEP/raw/watchdog.json" | tr '\n' '|')
+  sig=$(grep -oE '"(phase|summary)": *"[^"]*"' "$RAW/watchdog.json" | tr '\n' '|')
   if [ "$sig" = "$prev" ]; then same=$((same+1)); else same=0; fi
   [ "$same" -ge 30 ] && { echo "WATCHDOG: STALLED"; break; }
   prev="$sig"
 done
 ```
 
-The loop exits — and re-invokes you — on exactly two events. Your judgment on wake:
+The loop exits — and re-invokes you — on exactly three events. `DONE` may only come from a real status file that shows no live job; a poll that fails or writes nothing is `ERROR`, never `DONE`. Your judgment on wake:
 
 - `WATCHDOG: DONE` → jobs left running state (detected within a minute); fetch recaps and gate normally.
+- `WATCHDOG: ERROR` → the poll itself broke (companion call failed, or the status file is missing/empty) — says nothing about the jobs. Run `status --all --json` by hand, fix the cause (dead companion, wrong `$RAW` path), then restart the watchdog. Do not gate on it.
 - `WATCHDOG: STALLED` → ~30 minutes of identical `phase` + summary (growing `elapsed` alone is not progress — it's excluded from the signature). Then: `cancel <job-id>`, `task --resume-last "you were cancelled mid-run; continue from where you stopped"` — the thread survives job cancellation — and restart the watchdog. A stall recovery does not consume a task attempt.
 - Same step stalls a second time → stop dispatching, report to the user: that smells like a runtime/environment problem (stale broker, dead daemon — see the dispatch-or-direct preflight), not a task problem.
 

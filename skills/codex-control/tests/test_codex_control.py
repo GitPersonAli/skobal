@@ -29,5 +29,7 @@ def test_runtime_facts_stay_authoritative() -> None:
     assert "xhigh" in runtime
     assert "gpt-5.6-sol" in runtime
     assert "WATCHDOG: STALLED" in runtime, "watchdog stall detection missing"
+    assert "WATCHDOG: ERROR" in runtime, "watchdog fail-loud exit missing"
+    assert "$STEP/raw" not in runtime, "no raw/ directly under the step dir (report-protocol layout)"
     assert "Parallel lanes" in runtime, "parallel lanes section missing"
     assert "merger" in runtime, "merger agent flow missing"
