@@ -1,0 +1,6 @@
+schema_version: 1
+name: design-studio
+version: 0.2.0
+description: Coordinate independent product design proposals, department decisions, and optional validation modules into one integrated experience.
+tags: [design, delegation, orchestration, usability]
+targets: [claude, cursor, opencode]

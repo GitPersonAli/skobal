@@ -11,6 +11,20 @@ skills:
   - orchestration
   targets:
   - claude
+- name: design-studio
+  version: 0.2.0
+  schema_version: 1
+  description: Coordinate independent product design proposals, department decisions, and optional validation modules into one integrated experience.
+  path: skills/design-studio
+  tags:
+  - delegation
+  - design
+  - orchestration
+  - usability
+  targets:
+  - claude
+  - cursor
+  - opencode
 - name: dispatch-or-direct
   version: 0.1.1
   schema_version: 1

@@ -11,11 +11,24 @@ setup beyond sync.
 | --- | --- |
 | [dispatch-or-direct](#dispatch-or-direct) | Decide whether to offload work to an external agent or do it directly, with a user-facing token estimate |
 | [codex-control](#codex-control) | Run any task through OpenAI Codex agents while the main agent acts only as a suspicious, token-thrifty judge |
+| [design-studio](#design-studio) | Select design departments and validation modules for one integrated product design |
 
-They pair: dispatch-or-direct is the front door (decide + preflight);
+The two delegation skills pair: dispatch-or-direct is the front door (decide + preflight);
 codex-control is the machine behind the "dispatch" branch. Either can be
 invoked alone; when dispatch-or-direct lands on dispatch, it invokes
 codex-control automatically.
+
+## design-studio
+
+Give the studio a product, a user goal, and the deliverable you want. A full redesign uses five departments with three independent Sol contributors and one Astra manager each. The director coordinates decisions across teams. Select fewer departments, change staffing, or add a validation module in the same request.
+
+> Use $design-studio to redesign the mini app around the jobs people used the PHP bot for. Check legacy parity, test the new flows with ten synthetic users, and implement the result on a dedicated branch.
+
+> Use $design-studio for IA and UX only. Give me a design-only proposal for finding saved orders.
+
+> Add four synthetic testers to the approved saved-orders flow. Focus on whether returning users can recover an interrupted order.
+
+A one-off team or test can be described in the brief. To reuse it across projects, add a card beside the existing department or module cards. [Skill and extension instructions](../skills/design-studio/SKILL.md)
 
 ---
 
